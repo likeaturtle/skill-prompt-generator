@@ -51,13 +51,26 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/huangserva/skill-prompt-generator.git
+git clone https://github.com/likeaturtle/skill-prompt-generator.git
 
-# 2. 进入项目目录
+# 2. 安装 UV
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 3. 进入项目目录
 cd skill-prompt-generator
 
-# 3. 安装Python依赖
-pip install -r requirements.txt
+# 4. 设置虚拟环境
+uv venv --python=3.13
+
+# 5. 激活虚拟环境
+source .venv/bin/activate
+
+# 6. 初始化目录
+uv init
+
+# 7. 添加依赖包
+uv add -r requirements.txt
+
 ```
 
 **重要**：克隆后，`.claude/skills/` 下的12个Skills会自动被Claude Code识别。
@@ -67,7 +80,7 @@ pip install -r requirements.txt
 1. 访问 https://github.com/huangserva/skill-prompt-generator
 2. 点击 "Code" → "Download ZIP"
 3. 解压到任意目录
-4. 在该目录下运行 `pip install -r requirements.txt`
+4. 后续与方式一的 2-7 步一致
 
 ### 验证安装
 
