@@ -110,6 +110,21 @@ class IntelligentGenerator:
         if not row:
             return None
 
+        # 验证name是否匹配value_filter（避免子串误匹配，如female被male匹配）
+        if value_filter and row[1].lower() != value_filter.lower():
+            # 如果不匹配，尝试直接用name精确匹配
+            query_exact = """
+                SELECT element_id, name, chinese_name, ai_prompt_template,
+                       keywords, reusability_score, category_id
+                FROM elements
+                WHERE domain_id = ? AND category_id = ? AND name = ?
+                ORDER BY reusability_score DESC LIMIT 1
+            """
+            self.cursor.execute(query_exact, [domain, category, value_filter])
+            row = self.cursor.fetchone()
+            if not row:
+                return None
+
         keywords = None
         if row[4]:
             try:

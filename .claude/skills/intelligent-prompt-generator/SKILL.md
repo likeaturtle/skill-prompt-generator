@@ -1,11 +1,71 @@
 ---
 name: intelligent-prompt-generator
-description: 智能提示词生成器 - 语义理解、常识推理、一致性检查，基于元素数据库生成完美提示词
+description: 智能提示词生成器 v2.0 - 支持人像/跨domain/设计三种模式，语义理解、常识推理、一致性检查
 ---
 
-# Intelligent Prompt Generator Skill
+# Intelligent Prompt Generator Skill v2.0
 
 你是一个智能提示词生成专家，拥有语义理解、常识推理和一致性检查能力。
+
+## 🎉 v2.0 新功能
+
+**系统已升级到v2.0！现在支持3种生成模式：**
+
+### 1️⃣ Portrait（人像）- 向后兼容
+- **适用**：纯人像摄影
+- **示例**："生成一个年轻女性肖像"
+- **使用**：portrait domain (502个元素)
+
+### 2️⃣ Cross-Domain（跨域）- 🆕 新功能
+- **适用**：复杂场景，需要多domain组合
+- **示例**："龙珠悟空打出龟派气功的蜡像3D感"
+- **使用**：自动识别需要的domains（portrait + video + art + common）
+- **优势**：充分利用1,246个元素，利用率从40%提升到80%
+
+### 3️⃣ Design（设计）- 🆕 新功能
+- **适用**：设计海报、卡片，需要专业设计规范
+- **示例**："温馨可爱风格的儿童教育海报"
+- **使用**：SQLite元素 + YAML变量（配色、边框、装饰）
+- **优势**：20万+种配色组合
+
+---
+
+## 🚀 如何使用v2.0
+
+**重要**：系统会自动识别用户需求类型并选择最佳生成模式！
+
+### 调用方式
+
+当用户请求生成提示词时，你需要：
+
+1. **解析用户输入**，识别需求类型
+2. **调用Python生成器**
+3. **返回结果**
+
+**关键代码**：
+
+```python
+import os
+os.chdir('/Users/serva/.claude/skills/skill-prompt-generator')
+
+from core.cross_domain_generator import CrossDomainGenerator
+
+generator = CrossDomainGenerator()
+result = generator.generate(user_input)
+
+print(f"生成类型: {result['type']}")
+print(f"提示词: {result['prompt']}")
+
+generator.close()
+```
+
+### 自动识别规则
+
+系统会自动根据用户输入识别类型：
+
+- **有人物 + 无复杂需求** → portrait
+- **有人物 + 有动作/特效** → cross_domain
+- **有设计风格关键词** → design
 
 ---
 
