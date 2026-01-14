@@ -19,6 +19,7 @@
 | design-master | design | 59 | 直接查询 | Bento Grid、玻璃态、布局 |
 | product-master | product | 77 | 直接查询 | 商业摄影、产品布光 |
 | video-master | video | 49 | 直接查询 | 镜头运动、转场、特效 |
+| **prompt-crafter** ⭐ | design (变量库) | 20万+组合 | 专业设计系统 | 配色方案、装饰元素、风格推荐 |
 
 **关键**：
 - intelligent-prompt-generator 使用 `prompt_framework.yaml`（人像专用框架）
@@ -45,7 +46,8 @@
     ↓
     ├─ 风景/静物/艺术绘画 → art-master (art domain, 51元素)
     ├─ 产品/商品 → product-master (product domain, 77元素)
-    ├─ 海报/UI/布局 → design-master (design domain, 59元素)
+    ├─ 海报/UI/布局（需要设计术语） → design-master (design domain, 59元素)
+    ├─ 海报/卡片（需要配色+风格系统） → prompt-crafter ⭐ (20万+组合)
     └─ 视频/镜头运动 → video-master (video domain, 49元素)
 ```
 
@@ -70,9 +72,21 @@
 - 关键词：水墨画山水、油画风景、抽象艺术、静物绘画
 - 示例："生成中国水墨画山水" "油画风格的静物"
 
-**🎯 平面设计（无人物）** → `design-master`
-- 关键词：Bento Grid、海报、UI、排版、布局、玻璃态
+**🎯 平面设计（无人物）** → 两种选择：
+
+**A. design-master** - 设计术语和布局描述
+- 关键词：Bento Grid、玻璃态、UI、排版技术术语
 - 示例："生成Bento Grid海报" "玻璃态UI设计"
+- 输出：设计术语描述
+
+**B. prompt-crafter** ⭐ - 专业设计规范和配色系统
+- 关键词：温馨可爱、现代简约、配色方案、儿童教育、卡片设计
+- 示例："生成温馨可爱的儿童海报" "现代简约科技宣传图"
+- 输出：完整设计规范（配色+圆角+阴影+装饰+技术参数）
+
+**如何选择**：
+- 需要设计术语 → design-master
+- 需要完整设计系统（配色+装饰+风格） → prompt-crafter
 
 **📦 产品摄影（无人物）** → `product-master`
 - 关键词：产品、商品、商业摄影、包装、静物
@@ -128,7 +142,9 @@ B. 艺术技法（笔触、留白、泼墨）
 | "生成电影级亚洲女性" | ✅ | intelligent-prompt-generator | 人物肖像，需要五官妆容 |
 | "生成水墨画风格的女性" | ✅ | intelligent-prompt-generator | 主体是人物，水墨画作为art_style |
 | "生成中国水墨画山水" | ❌ | art-master | 无人物，纯艺术风格 |
-| "生成Bento Grid海报" | ❌ | design-master | 无人物，设计布局 |
+| "生成Bento Grid海报" | ❌ | design-master | 无人物，设计布局术语 |
+| "生成温馨可爱的儿童海报" | ❌ | **prompt-crafter** ⭐ | 需要配色+装饰+风格系统 |
+| "生成现代简约科技宣传图" | ❌ | **prompt-crafter** ⭐ | 需要专业设计规范 |
 | "生成奢华手表产品摄影" | ❌ | product-master | 产品摄影 |
 | "生成武侠场景运镜" | ❌ | video-master | 镜头运动 |
 | "生成女性肖像，要求水墨画的笔触留白" | ✅ | 询问用户 | 同时强调人物和艺术技法 |
@@ -153,6 +169,7 @@ B. 艺术技法（笔触、留白、泼墨）
 - `Skill(command="product-master")`
 - `Skill(command="video-master")`
 - `Skill(command="intelligent-prompt-generator")`
+- `Skill(command="prompt-crafter")` ⭐ **新增**
 
 **你绝对不能**：
 - ❌ 在conversation里直接用Bash调用Python
@@ -170,10 +187,28 @@ B. 艺术技法（笔触、留白、泼墨）
 - product-master: 商业摄影器材（Phase One相机、softbox）
 - video-master: 镜头语言（运镜、转场、特效）
 - intelligent-prompt-generator: 深度人像理解（五官、人种推理）
+- **prompt-crafter** ⭐: 专业设计规范（配色方案、装饰元素、风格系统、20万+组合）
 
 ---
 
 ## 🎯 其他Skill调用规则
+
+### 当用户请求专业设计提示词时 ⭐ **新增**
+
+**用户说**：
+- "生成温馨可爱/现代简约的海报"
+- "我要做儿童教育/科技宣传的设计"
+- "需要配色方案"
+- "帮我设计XX风格的卡片"
+
+**你必须**：
+✅ 调用 `prompt-crafter` skill
+
+**prompt-crafter 的特点**：
+- 从20万+变量组合中采样
+- 输出完整设计规范（配色+圆角+阴影+装饰+技术参数）
+- 支持风格：温馨可爱、现代简约
+- 适用场景：儿童教育、科技商务、海报卡片设计
 
 ### 当用户请求NotebookLM相关功能时
 
