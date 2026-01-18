@@ -69,6 +69,279 @@ generator.close()
 
 ---
 
+## 🌟 Cross-Domain智能补充机制（重要！）
+
+**核心原则：数据库提供通用元素，Claude补充语义内容！**
+
+### 为什么需要智能补充？
+
+数据库包含1,246个元素，涵盖：
+- ✅ 光影技术（lighting_techniques）
+- ✅ 摄影技术（photography_techniques）
+- ✅ 构图方式（poses, compositions）
+- ✅ 技术参数（technical_quality）
+- ✅ 基础人物特征（skin, face, eyes等）
+
+但数据库**不可能穷举**：
+- ❌ 所有动漫IP（龙珠、火影、海贼王...）
+- ❌ 所有角色（悟空、鸣人、路飞...）
+- ❌ 所有特殊技能（龟派气功、螺旋丸、橡胶果实...）
+- ❌ 所有历史人物（秦始皇、拿破仑、诸葛亮...）
+
+### 正确的处理流程
+
+当用户请求包含**数据库没有的语义内容**时（如"龙珠悟空打龟派气功"）：
+
+**第1步：你（Claude）先生成语义描述**
+
+```
+用户输入："龙珠悟空打出龟派气功的蜡像3D感"
+
+你的知识补充：
+- 悟空：Son Goku from Dragon Ball, spiky black hair standing upward, 
+        orange gi martial arts uniform, muscular powerful fighter,
+        determined fierce expression
+- 龟派气功：performing Kamehameha energy wave attack, 
+           hands cupped together at the side, 
+           powerful blue energy beam shooting forward,
+           intense concentration pose, dramatic energy aura
+- 蜡像3D感：hyperrealistic wax figure sculpture, 
+            museum quality wax statue, lifelike skin texture,
+            3D rendered, volumetric lighting, photorealistic CGI
+```
+
+**第2步：调用Python获取通用元素**
+
+```python
+from core.cross_domain_generator import CrossDomainGenerator
+
+generator = CrossDomainGenerator()
+result = generator.generate(user_input)  # 获取光影、技术参数等
+
+# result['prompt'] 包含数据库元素（但缺少角色/动作描述）
+db_elements = result['prompt']
+```
+
+**第3步：合并生成最终提示词**
+
+```
+最终提示词 = 你的语义描述 + 数据库通用元素
+
+示例输出：
+"Son Goku from Dragon Ball, spiky black hair standing upward, 
+orange gi martial arts uniform, muscular powerful fighter,
+performing Kamehameha energy wave attack, hands cupped together,
+powerful blue energy beam shooting forward, intense concentration,
+hyperrealistic wax figure sculpture, museum quality, lifelike skin,
+3D rendered, volumetric lighting, [数据库光影元素], [数据库技术参数]..."
+```
+
+### 示例：完整处理流程
+
+**用户**：`"龙珠悟空打出龟派气功的蜡像3D感"`
+
+**你的处理**：
+
+1️⃣ **分析用户需求**：
+```
+- 角色：悟空（龙珠动漫）← 数据库没有，需要Claude补充
+- 动作：龟派气功 ← 数据库没有，需要Claude补充
+- 风格：蜡像3D感 ← 数据库没有，需要Claude补充
+- 光影/技术：← 数据库有，调用Python获取
+```
+
+2️⃣ **Claude生成语义描述**（用你自己的知识！）：
+```
+角色描述：
+"Son Goku from Dragon Ball anime, adult muscular male Saiyan warrior,
+iconic spiky black hair defying gravity, wearing orange and blue gi
+martial arts uniform with King Kai symbol, intense determined expression"
+
+动作描述：
+"performing the legendary Kamehameha attack, classic pose with hands
+cupped together pulled back to the side, gathering blue ki energy,
+powerful blue energy beam erupting forward, surrounded by intense
+blue energy aura, dynamic action pose"
+
+风格描述：
+"hyperrealistic wax figure sculpture style, museum quality Madame
+Tussauds level detail, lifelike skin texture with subtle pores,
+3D CGI render quality, volumetric lighting highlighting muscle
+definition"
+```
+
+3️⃣ **调用Python获取通用元素**：
+```python
+result = generator.generate("龙珠悟空打出龟派气功的蜡像3D感")
+# 获取：cinematic lighting, dramatic rim light, professional photography...
+```
+
+4️⃣ **合并输出最终提示词**：
+```
+🎨 生成的提示词：
+────────────────────────────────────────────────────────
+Son Goku from Dragon Ball anime, adult muscular male Saiyan warrior,
+iconic spiky black hair defying gravity, wearing orange and blue gi
+martial arts uniform with King Kai symbol, intense determined expression,
+performing the legendary Kamehameha attack, classic pose with hands
+cupped together pulled back to the side, gathering blue ki energy,
+powerful blue energy beam erupting forward, surrounded by intense
+blue energy aura, dynamic action pose, hyperrealistic wax figure
+sculpture style, museum quality Madame Tussauds level detail,
+lifelike skin texture with subtle pores, 3D CGI render quality,
+volumetric lighting highlighting muscle definition, cinematic lighting,
+dramatic rim light, professional photography quality
+────────────────────────────────────────────────────────
+
+📊 元素来源：
+- 角色描述：Claude知识补充
+- 动作描述：Claude知识补充  
+- 风格描述：Claude知识补充
+- 光影/技术：数据库元素
+```
+
+### 第2.5步：从候选中选择最匹配的元素（关键！）
+
+**核心原则：能匹配就用数据库，匹配不上不强求！**
+
+Python返回的是**候选列表**，不是最终结果。你（Claude）需要：
+
+**1️⃣ 根据用户需求确定搜索关键词**
+
+```
+用户输入："龙珠悟空打出龟派气功的蜡像3D感"
+
+你分析出的关键词：
+- lighting相关: ["dramatic", "energy", "glow", "rim light", "dynamic"]
+- style相关: ["3D", "wax", "sculpture", "CGI", "hyperrealistic"]
+- 动作相关: ["action", "power", "blast", "energy beam"]
+```
+
+**2️⃣ 遍历候选，判断是否匹配**
+
+```
+lighting_techniques候选（202个）：
+├─ "natural window light, soft daylight" 
+│   → 关键词匹配: 0个 ❌ 不匹配，放弃
+├─ "dramatic rim light, edge lighting"
+│   → 关键词匹配: dramatic, rim light ✅ 匹配！选中
+├─ "neon glow, colorful lighting"
+│   → 关键词匹配: glow ✅ 部分匹配，备选
+└─ ...
+
+art_styles候选（30个）：
+├─ "watercolor painting style"
+│   → 关键词匹配: 0个 ❌ 不匹配，放弃
+├─ "oil painting classical"
+│   → 关键词匹配: 0个 ❌ 不匹配，放弃
+├─ "anime cel shading"
+│   → 关键词匹配: 0个 ❌ 不匹配，放弃
+└─ （遍历完，没有wax/3D/sculpture相关）
+    → ⚠️ 整个category匹配不上，不强求！由Claude补充
+```
+
+**3️⃣ 匹配规则**
+
+| 情况 | 处理方式 |
+|------|---------|
+| 候选关键词包含用户需求 | ✅ 选中该元素 |
+| 部分匹配（1-2个关键词） | ⚠️ 备选，看整体一致性 |
+| 完全不匹配 | ❌ 放弃，不要硬塞 |
+| 整个category都匹配不上 | ⚠️ 该category由Claude补充 |
+
+**4️⃣ 示例：完整的选择过程**
+
+```
+用户："龙珠悟空打出龟派气功的蜡像3D感"
+
+【lighting_techniques】202个候选
+  搜索关键词: dramatic, energy, glow, rim, dynamic, power
+  
+  遍历结果:
+  - "natural window light" → 匹配0个 → 放弃
+  - "soft diffused lighting" → 匹配0个 → 放弃
+  - "dramatic rim light" → 匹配2个(dramatic, rim) → ✅ 选中！
+  - "cinematic lighting" → 匹配1个(dynamic感觉相关) → 备选
+  
+  最终选择: "dramatic rim light, cinematic lighting"
+
+【art_styles】30个候选
+  搜索关键词: 3D, wax, sculpture, CGI, hyperrealistic
+  
+  遍历结果:
+  - "watercolor" → 匹配0个 → 放弃
+  - "anime style" → 匹配0个 → 放弃
+  - ... (全部遍历)
+  - 没有任何候选匹配 wax/3D/sculpture
+  
+  最终选择: ⚠️ 无匹配，由Claude补充
+
+【photography_techniques】50个候选
+  搜索关键词: action, dynamic, motion, blur
+  
+  遍历结果:
+  - "portrait photography" → 匹配0个 → 放弃
+  - "dynamic action shot" → 匹配2个(dynamic, action) → ✅ 选中！
+  
+  最终选择: "dynamic action shot"
+```
+
+**5️⃣ 最终组合**
+
+```
+最终提示词 = 
+  Claude补充（数据库没有/匹配不上的）:
+    - 悟空外貌描述
+    - 龟派气功动作描述
+    - 蜡像3D风格描述（art_styles匹配不上）
+  +
+  数据库选中（匹配上的）:
+    - dramatic rim light（lighting匹配上了）
+    - dynamic action shot（photography匹配上了）
+    - cinematic quality（technical匹配上了）
+```
+
+---
+
+### 什么时候需要Claude补充？
+
+| 内容类型 | 数据库有？ | 处理方式 |
+|---------|----------|---------|
+| 光影技术 | ✅ 有 | 从候选中选择匹配的 |
+| 摄影参数 | ✅ 有 | 从候选中选择匹配的 |
+| 基础人物特征 | ✅ 有 | 从候选中选择匹配的 |
+| 动漫角色 | ❌ 没有 | **Claude补充** |
+| 游戏角色 | ❌ 没有 | **Claude补充** |
+| 特殊技能/动作 | ❌ 没有 | **Claude补充** |
+| 历史人物 | ❌ 没有 | **Claude补充** |
+| 特定IP风格 | ❌ 没有 | **Claude补充** |
+| 数据库有但匹配不上 | ⚠️ 有但不匹配 | **Claude补充** |
+
+### Claude补充时的质量要求
+
+✅ **必须详细描述视觉特征**：
+```
+❌ 错误："Goku"（太简单）
+✅ 正确："Son Goku from Dragon Ball, spiky black hair standing upward,
+        orange gi uniform, muscular build, fierce determined expression"
+```
+
+✅ **必须使用英文**（因为大多数图像生成模型用英文训练）
+
+✅ **必须包含关键视觉元素**：
+- 角色：外貌、服装、发型、表情
+- 动作：姿势、手势、运动方向
+- 特效：颜色、形态、光效
+
+✅ **风格描述要具体**：
+```
+❌ 错误："3D style"（太模糊）
+✅ 正确："hyperrealistic wax figure sculpture, museum quality,
+        lifelike skin texture, volumetric lighting, photorealistic CGI"
+```
+
+---
+
 ## 🎯 框架系统（Framework System）
 
 **重要**：本系统基于 `prompt_framework.yaml` 框架配置文件。

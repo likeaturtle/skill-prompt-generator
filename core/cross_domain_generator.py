@@ -238,7 +238,12 @@ class CrossDomainGenerator:
 
     def generate_cross_domain(self, intent: Dict) -> Dict:
         """
-        生成跨domain提示词（SQLite多domain）
+        生成跨domain提示词（SQLite多domain + intelligent_generator完整流程）
+
+        修复版：跨域查询后，复用intelligent_generator的核心能力
+        - 一致性检查
+        - 冲突解决
+        - 智能组装
 
         Args:
             intent: 用户意图
@@ -246,29 +251,143 @@ class CrossDomainGenerator:
         Returns:
             生成结果
         """
-        print("  → 使用 cross_domain 生成器（SQLite多domain）")
+        print("  → 使用 cross_domain 生成器（SQLite多domain + 智能组装）")
 
-        # 跨domain查询
+        # 1. 跨domain查询获取候选元素
         elements_by_domain = self.query_engine.query_by_intent(intent)
 
-        # 组合提示词
-        prompt_parts = []
+        # 2. 合并所有domain的元素为统一列表
+        all_elements = []
         for domain, elements in elements_by_domain.items():
             for elem in elements:
-                template = elem.get('template', '')
-                if template:
-                    prompt_parts.append(template)
+                # 确保元素有必要的字段
+                if 'template' not in elem:
+                    elem['template'] = elem.get('ai_prompt_template', '')
+                if 'category' not in elem:
+                    elem['category'] = elem.get('category_id', 'unknown')
+                # 标记来源domain
+                elem['source_domain'] = domain
+                all_elements.append(elem)
 
-        prompt = ', '.join(prompt_parts)
+        print(f"  📊 合并了 {len(all_elements)} 个元素来自 {len(elements_by_domain)} 个domain")
+
+        # 3. 如果元素太少，补充基于intent的智能选择
+        if len(all_elements) < 5:
+            print("  ⚠️  元素较少，使用intelligent_generator补充...")
+            extra_elements = self.portrait_generator.select_elements_by_intent(intent)
+            # 合并，避免重复
+            existing_ids = {e.get('element_id') for e in all_elements}
+            for elem in extra_elements:
+                if elem.get('element_id') not in existing_ids:
+                    elem['source_domain'] = 'portrait_supplement'
+                    all_elements.append(elem)
+            print(f"  📊 补充后共 {len(all_elements)} 个元素")
+
+        # 4. 使用intelligent_generator检查一致性
+        issues = self.portrait_generator.check_consistency(all_elements)
+        if issues:
+            print(f"  🔍 发现 {len(issues)} 个一致性问题，正在修复...")
+            all_elements, fixes = self.portrait_generator.resolve_conflicts(all_elements, issues)
+            for fix in fixes:
+                print(f"     {fix}")
+
+        # 5. 基于raw_input增强prompt（提取用户原始描述中的关键信息）
+        enhanced_parts = self._extract_scene_description(intent)
+        
+        # 6. 使用intelligent_generator的智能组装
+        base_prompt = self.portrait_generator.compose_prompt(all_elements, mode='auto')
+        
+        # 7. 组合最终提示词：增强描述 + 数据库元素
+        if enhanced_parts:
+            final_prompt = f"{enhanced_parts}, {base_prompt}"
+        else:
+            final_prompt = base_prompt
 
         return {
-            'prompt': prompt,
+            'prompt': final_prompt,
             'type': 'cross_domain',
             'metadata': {
                 'domains_used': list(elements_by_domain.keys()),
-                'element_count': sum(len(elems) for elems in elements_by_domain.values())
+                'element_count': len(all_elements),
+                'issues_fixed': len(issues) if issues else 0,
+                'enhanced': bool(enhanced_parts)
             }
         }
+
+    def _extract_scene_description(self, intent: Dict) -> str:
+        """
+        从用户原始输入提取场景描述，生成增强的英文描述
+        
+        这是cross_domain的关键增强：将用户的自然语言描述转换为结构化的英文prompt
+        """
+        raw_input = intent.get('raw_input', '')
+        if not raw_input:
+            return ''
+        
+        parts = []
+        raw_lower = raw_input.lower()
+        
+        # 场景类型识别
+        scene_mappings = {
+            # 古代/历史场景
+            ('秦', '宫殿', '大殿'): 'ancient Chinese Qin Dynasty palace hall, grand imperial architecture',
+            ('战国', '秦国'): 'Warring States period, ancient Chinese military setting',
+            ('古代', '古装'): 'ancient Chinese historical setting',
+            ('宫廷', '皇宫'): 'Chinese imperial palace, ornate traditional architecture',
+            ('战场', '战争'): 'epic battlefield, war scene',
+            
+            # 动作场景
+            ('比武', '对决', '决斗'): 'intense combat duel, martial arts battle',
+            ('剑术', '剑', '刀'): 'sword fighting, blade combat, weapon clash',
+            ('武术', '功夫'): 'martial arts, kung fu action',
+            ('打斗', '格斗'): 'fighting scene, combat action',
+            
+            # 人物类型
+            ('武将', '将军', '将领'): 'powerful military general, armored warrior',
+            ('武士', '剑客'): 'skilled swordsman, warrior',
+            ('王', '皇帝', '君主'): 'noble king, imperial ruler',
+            
+            # 氛围
+            ('史诗', '壮观'): 'epic cinematic scene, grand scale',
+            ('电影级', '大片'): 'blockbuster movie quality, cinematic composition',
+            ('激烈', '紧张'): 'intense dramatic action, high tension',
+        }
+        
+        for keywords, english_desc in scene_mappings.items():
+            if any(kw in raw_input for kw in keywords):
+                parts.append(english_desc)
+        
+        # 特定人物识别
+        character_mappings = {
+            '赢稷': 'King Yingji of Qin',
+            '秦王': 'King of Qin',
+            '白起': 'General Baiqi, legendary military commander',
+            '项羽': 'Xiang Yu, mighty warrior king',
+            '刘邦': 'Liu Bang, founder of Han Dynasty',
+            '韩信': 'Han Xin, brilliant military strategist',
+            '悟空': 'Son Goku, powerful martial artist',
+        }
+        
+        for cn_name, en_name in character_mappings.items():
+            if cn_name in raw_input:
+                parts.append(en_name)
+        
+        # 视觉风格增强
+        if any(kw in raw_lower for kw in ['电影', 'cinematic', '史诗']):
+            parts.append('dramatic lighting, dust particles in the air')
+        
+        if any(kw in raw_lower for kw in ['古代', '战国', '秦']):
+            parts.append('elaborate period costume with intricate bronze patterns')
+        
+        # 去重并返回
+        seen = set()
+        unique_parts = []
+        for part in parts:
+            if part not in seen:
+                seen.add(part)
+                unique_parts.append(part)
+        
+        return ', '.join(unique_parts)
 
     def close(self):
         """关闭资源"""
